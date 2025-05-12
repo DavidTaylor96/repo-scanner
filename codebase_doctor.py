@@ -18,9 +18,11 @@ import json
 import argparse
 import logging
 import subprocess
+import urllib.request
+import urllib.error
+import urllib.parse
 from typing import Dict, List, Any, Optional, Tuple
 from collections import defaultdict, Counter
-import requests
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -114,16 +116,16 @@ class CodebaseAnalyzer:
     def ai_analysis(self, architecture_data: Dict[str, Any]) -> Dict[str, str]:
         """Use Claude AI to analyze the codebase architecture."""
         logger.info("Performing AI analysis of the codebase...")
-        
+
         # Prepare the data for the AI
         prompt = self._generate_ai_prompt(architecture_data)
-        
+
         # Call Claude API
         headers = {
             "x-api-key": self.api_key,
             "Content-Type": "application/json"
         }
-        
+
         data = {
             "model": "claude-3-opus-20240229",
             "max_tokens": 4000,
@@ -131,23 +133,40 @@ class CodebaseAnalyzer:
                 {"role": "user", "content": prompt}
             ]
         }
-        
+
         try:
-            response = requests.post(
+            # Convert data to JSON
+            data_json = json.dumps(data).encode('utf-8')
+
+            # Create request
+            req = urllib.request.Request(
                 "https://api.anthropic.com/v1/messages",
+                data=data_json,
                 headers=headers,
-                json=data
+                method="POST"
             )
-            response.raise_for_status()
-            result = response.json()
-            ai_analysis = result["content"][0]["text"]
-            
-            # Format the AI response into sections
-            analysis_sections = self._parse_ai_analysis(ai_analysis)
-            
-            logger.info("AI analysis complete")
-            return analysis_sections
-            
+
+            # Send request and get response
+            with urllib.request.urlopen(req) as response:
+                # Read response and parse JSON
+                response_data = response.read().decode('utf-8')
+                result = json.loads(response_data)
+                ai_analysis = result["content"][0]["text"]
+
+                # Format the AI response into sections
+                analysis_sections = self._parse_ai_analysis(ai_analysis)
+
+                logger.info("AI analysis complete")
+                return analysis_sections
+
+        except urllib.error.HTTPError as e:
+            logger.error(f"HTTP Error during AI analysis: {e.code} - {e.reason}")
+            return {
+                "overview": f"Error during AI analysis: {e.code} - {e.reason}",
+                "patterns": "Error during AI analysis",
+                "recommendations": "Error during AI analysis",
+                "examples": "Error during AI analysis"
+            }
         except Exception as e:
             logger.error(f"Error during AI analysis: {str(e)}")
             return {
@@ -760,44 +779,44 @@ def analyze_codebase(repo_path: str, api_key: str, output_file: str = "codebase_
 def ask_ai_about_codebase(doc_path: str, query: str, api_key: str) -> str:
     """
     Ask Claude AI a question about the codebase using the generated documentation.
-    
+
     Args:
         doc_path: Path to the generated documentation
         query: Question to ask about the codebase
         api_key: Claude API key
-        
+
     Returns:
         AI response
     """
     print(f"Asking AI: {query}")
-    
+
     # Read the documentation
     with open(doc_path, 'r', encoding='utf-8') as f:
         doc_content = f.read()
-    
+
     # Prepare the prompt for Claude
     prompt = f"""
-    You are a helpful assistant that helps developers understand and work with a specific codebase. 
+    You are a helpful assistant that helps developers understand and work with a specific codebase.
     I'll provide you with documentation about the codebase structure, patterns, and implementation guidelines.
-    
+
     Here's the codebase documentation:
-    
+
     {doc_content}
-    
+
     Please use this documentation to answer the following question about the codebase:
-    
+
     {query}
-    
-    Provide a detailed and specific answer based only on the information in the documentation. 
+
+    Provide a detailed and specific answer based only on the information in the documentation.
     If the documentation doesn't contain enough information to answer the question, please say so.
     """
-    
+
     # Call Claude API
     headers = {
         "x-api-key": api_key,
         "Content-Type": "application/json"
     }
-    
+
     data = {
         "model": "claude-3-opus-20240229",
         "max_tokens": 1000,
@@ -805,19 +824,31 @@ def ask_ai_about_codebase(doc_path: str, query: str, api_key: str) -> str:
             {"role": "user", "content": prompt}
         ]
     }
-    
+
     try:
-        response = requests.post(
+        # Convert data to JSON
+        data_json = json.dumps(data).encode('utf-8')
+
+        # Create request
+        req = urllib.request.Request(
             "https://api.anthropic.com/v1/messages",
+            data=data_json,
             headers=headers,
-            json=data
+            method="POST"
         )
-        response.raise_for_status()
-        result = response.json()
-        answer = result["content"][0]["text"]
-        
-        return answer
-        
+
+        # Send request and get response
+        with urllib.request.urlopen(req) as response:
+            # Read response and parse JSON
+            response_data = response.read().decode('utf-8')
+            result = json.loads(response_data)
+            answer = result["content"][0]["text"]
+
+            return answer
+
+    except urllib.error.HTTPError as e:
+        print(f"HTTP Error querying Claude API: {e.code} - {e.reason}")
+        return f"Error: {e.code} - {e.reason}"
     except Exception as e:
         print(f"Error querying Claude API: {str(e)}")
         return f"Error: {str(e)}"

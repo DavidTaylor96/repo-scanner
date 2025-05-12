@@ -13,10 +13,7 @@ A powerful tool to analyze codebases, generate documentation, and get AI-powered
 ## Installation
 
 ```bash
-# Install required package
-pip install requests
-
-# Clone or download the script
+# Clone or download the script (no external dependencies required)
 curl -O https://raw.githubusercontent.com/yourusername/codebase-doctor/main/codebase_doctor.py
 chmod +x codebase_doctor.py
 ```
@@ -73,7 +70,7 @@ You can ask the AI questions like:
 
 - Python 3.6+
 - Claude API key from Anthropic
-- `requests` library
+- No external dependencies required (uses Python standard library)
 
 ## How It Works
 
